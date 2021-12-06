@@ -1,26 +1,30 @@
-group_number = 3
+import cv2
+import numpy as np
+from cflib.positioning.position_hl_commander import PositionHlCommander
+from cflib.crazyflie.syncLogger import SyncLogger
+from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
+from cflib.crazyflie.log import LogConfig
+from cflib.crazyflie import Crazyflie
+import cflib.crtp
+import time
+
+from matplotlib import pyplot as plt
+from matplotlib import animation
+from typing import List, Tuple
+from IPython.display import HTML, Image
+
+group_number = 16
 
 # Possibly try 0, 1, 2 ...
 camera = 0
 
 # Code adapted from: https://github.com/bitcraze/crazyflie-lib-python/blob/master/examples/autonomousSequence.py
 
-import time
 # CrazyFlie imports:
-import cflib.crtp
-from cflib.crazyflie import Crazyflie
-from cflib.crazyflie.log import LogConfig
-from cflib.crazyflie.syncCrazyflie import SyncCrazyflie
-from cflib.crazyflie.syncLogger import SyncLogger
-from cflib.positioning.position_hl_commander import PositionHlCommander
-import numpy as np
-import cv2
 
 
-
-
-## Some helper functions:
-## -----------------------------------------------------------------------------------------
+# Some helper functions:
+# -----------------------------------------------------------------------------------------
 
 # Ascend and hover:
 def set_PID_controller(cf):
@@ -59,7 +63,7 @@ def findGreatesContour(contours):
             largest_contour_index = i
         i += 1
 
-    #print(largest_area)
+    # print(largest_area)
 
     return largest_area, largest_contour_index
 
@@ -79,7 +83,8 @@ def check_contours(frame):
     # Compute
     mask = cv2.inRange(hsv, lb, ub)
 
-    contours, hierarchy = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours, hierarchy = cv2.findContours(
+        mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
     largest_area, largest_contour_index = findGreatesContour(contours)
 
     print(largest_area)
@@ -97,7 +102,7 @@ def adjust_position(cf, current_y):
 
     steps_per_meter = int(10)
     for i in range(steps_per_meter):
-        current_y = current_y - 1.0/float(steps_per_meter)
+        current_y = current_y - 1.0 / float(steps_per_meter)
         position = [0, current_y, 0.5, 0.0]
 
         print('Setting position {}'.format(position))
@@ -132,11 +137,12 @@ def hover_and_descend(cf):
         time.sleep(0.1)
     return
 
-## -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------
 
-## The following code is the main logic that is executed when this script is run
+# The following code is the main logic that is executed when this script is run
 
-## -----------------------------------------------------------------------------------------
+
+# -----------------------------------------------------------------------------------------
 # Set the URI the Crazyflie will connect to
 uri = f'radio://0/{group_number}/2M'
 
@@ -151,12 +157,12 @@ available = cflib.crtp.scan_interfaces()
 print('Crazyflies found:')
 for i in available:
     print(i[0])
-
+frames = []
 # Check that CrazyFlie devices are available:
 if len(available) == 0:
     print('No Crazyflies found, cannot run example')
 else:
-    ## Ascent to hover; run the sequence; then descend from hover:
+    # Ascent to hover; run the sequence; then descend from hover:
     # Use the CrazyFlie corresponding to team number:
     with SyncCrazyflie(uri, cf=Crazyflie(rw_cache='./cache')) as scf:
         # Get the Crazyflie class instance:
@@ -172,16 +178,17 @@ else:
         while(cap.isOpened()):
 
             ret, frame = cap.read()
-
+            gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+            frames.append(gray)
             elapsed = time.time() - t
             if(elapsed > 5.0):
 
                 print('Capturing.....')
 
                 if ret:
-                    #cv2.imshow('frame',frame)
+                    cv2.imshow('frame', frame)
 
-                    if(ascended_bool==0):
+                    if(ascended_bool == 0):
                         set_PID_controller(cf)
                         ascend_and_hover(cf)
                         ascended_bool = 1
@@ -191,11 +198,33 @@ else:
                             current_y = adjust_position(cf, current_y)
 
             if(elapsed > 10.0):
-                        break
+                break
 
         cap.release()
 
         # Descend and stop all motion:
         hover_and_descend(cf)
 
+def create_gif(I, output_dir, frame_rate=20):
+    fig, ax = plt.subplots()
+    im = ax.imshow(I[:, :, 0], cmap='gray')
+
+    def init():
+        return [im]
+
+    def animate(i):
+        ax.clear()
+        im = ax.imshow(I[:, :, i], cmap='gray')
+
+        return [im]
+
+    anim = animation.FuncAnimation(
+        fig, animate, init_func=init, frames=I.shape[2], interval=100, blit=True)
+
+    anim.save(output_dir, writer='pillow', fps=frame_rate)
+    Image(url=output_dir)
+
+
+print('Creating GIF')
+create_gif(frames, './test_cf_output.gif')
 print('Done!')
