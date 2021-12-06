@@ -39,6 +39,9 @@ def mask_frame(frame):
     contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     new_contours = []
+    maxim_row = 0
+    minim_row = 1000
+
     for contour in contours:
         if cv2.contourArea(contour) > 1000:
             new_contours.append(contour)

@@ -43,12 +43,15 @@ def main():
     #                  flags=0)
     params = [0.5, 3, 15, 3, 5, 1.2, 0]
 
-    cap = cv2.VideoCapture(camera)
+    # cap = cv2.VideoCapture(camera)
+
+    cap = cv2.VideoCapture(cv2.samples.findFile('video_sample.avi'))
 
     ret, old_frame = cap.read()
 
     # resize frame and convert to gray
-    old_frame = cv2.cvtColor(cv2.resize(old_frame, image_size), cv2.COLOR_BGR2GRAY)
+    old_frame = cv2.cvtColor(cv2.resize(
+        old_frame, image_size), cv2.COLOR_BGR2GRAY)
 
     # Display the resulting frame
     cv2.imshow('frame', old_frame)
@@ -69,10 +72,12 @@ def main():
             break
         else:
             # resize frame and convert to gray
-            new_frame = cv2.cvtColor(cv2.resize(new_frame, image_size), cv2.COLOR_BGR2GRAY)
+            new_frame = cv2.cvtColor(cv2.resize(
+                new_frame, image_size), cv2.COLOR_BGR2GRAY)
 
             # flow = dense_optical_flow(old_frame, new_frame, None)
-            flow = cv2.calcOpticalFlowFarneback(old_frame, new_frame, None, *params)
+            flow = cv2.calcOpticalFlowFarneback(
+                old_frame, new_frame, None, *params)
             print(np.mean(flow))
 
             #             print(flow)
