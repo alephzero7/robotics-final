@@ -84,6 +84,7 @@ def load_video(name):
         #     frames[t], image_size), cv2.COLOR_BGR2GRAY) / 255
         smaller_image = cv2.resize(frames[t], image_size)
         I[:, :, t] = mask_frame(smaller_image)
+        # cv2.resize(frame, (640, 480))
 
     return I, fps
 
