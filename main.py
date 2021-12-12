@@ -85,6 +85,23 @@ def mask_frame(frame, color='red'):
 # Some helper functions:
 # -----------------------------------------------------------------------------------------
 
+def position_estimate(scf):
+    log_config = LogConfig(name='Position Estimate', period_in_ms=500)
+    log_config.add_variable('stateEstimate.x', 'float')
+    log_config.add_variable('stateEstimate.y', 'float')
+    log_config.add_variable('stateEstimate.z', 'float')
+
+    with SyncLogger(scf, log_config) as logger:
+        for log_entry in logger:
+            data = log_entry[1]
+            x = data['stateEstimate.x']
+            y = data['stateEstimate.y']
+            z = data['stateEstimate.z']
+            break
+
+    print(x, y, z)
+    return x, y, z
+
 # set_PID_controller
 def set_PID_controller(cf):
     # Set the PID Controller:
@@ -196,7 +213,7 @@ def adjust_position(cf, current_y, y_adjust, current_x, height=DRONE_HEIGHT):
 
 
 def move_forward(cf, current_x, x_adjust, current_y, height=DRONE_HEIGHT):
-
+    # current_x = move_forward(cf, current_x, X_ADJUST, current_y, 0.85)
     current_x += x_adjust
     position = [current_x, current_y, height, 0.0]
 
@@ -384,7 +401,10 @@ else:
                 ascended_bool = 1
 
             else:
-                cf.commander.send_hover_setpoint(current_x, current_y, 0.85, 0)
+                for _ in range(10):
+                    cf.commander.send_hover_setpoint(current_x, current_y, 0.85, 0)
+                    time.sleep(0.01)
+                time.sleep(0.1)
 
             # Center y
             current_y = adjust_position(cf, current_y, -current_y, current_x, 0.85)
@@ -450,7 +470,18 @@ else:
             # Add while loop that runs while contour too small
             while largest_area < 5000:
                 print('largest area: {}'.format(largest_area))
-                current_x = move_forward(cf, current_x, X_ADJUST, current_y, 0.85)
+
+                _, _, z_est = position_estimate(scf)
+                print('z estimate: {}'.format(z_est))
+                # if z_est < 0.5:
+                #     current_x = move_forward(cf, current_x, X_ADJUST, current_y, 0.15)
+                # else:
+                #     current_x = move_forward(cf, current_x, X_ADJUST, current_y, 0.85)
+                # current_x = move_forward(cf, current_x, X_ADJUST, current_y, z_est)
+                if current_x < 3.0:
+                    current_x = move_forward(cf, current_x, X_ADJUST, current_y, 0.85)
+                else:
+                    current_x = move_forward(cf, current_x, X_ADJUST, current_y, 0.15)
 
                 # update contour
                 ret, frame = cap.read()
@@ -473,8 +504,8 @@ else:
             # Land
 
         cap.release()
-
+        print('Getting ready to descend')
         # Descend and stop all motion:
-        hover_and_descend(cf, 0.85)
-
+        # hover_and_descend(cf, 0.1)
+        cf.commander.send_stop_setpoint()
 print('Done!')
