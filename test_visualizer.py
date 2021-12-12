@@ -12,10 +12,6 @@ image_size = (640, 480)
 file_name = 'video_sample.avi'
 
 def mask_frame(frame):
-    # lb = (120, 0, 220)
-    # lb = (145, 3, 250)
-    # ub = (155, 40, 255)
-    # ub = (180, 60, 255)
 
     blurred = cv2.medianBlur(frame, 5)
 
@@ -39,8 +35,6 @@ def mask_frame(frame):
     contours, _ = cv2.findContours(mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     new_contours = []
-    maxim_row = 0
-    minim_row = 1000
 
     for contour in contours:
         if cv2.contourArea(contour) > 1000:
@@ -52,10 +46,6 @@ def mask_frame(frame):
                 output_gray[row][col] = 0
 
     cv2.drawContours(output_gray, new_contours, -1, 255, 3)
-
-    # cv2.imshow('Frame', output_gray)
-    # cv2.waitKey(0)
-    # cv2.destroyAllWindows()
 
     return output_gray
 
