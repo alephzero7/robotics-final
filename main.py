@@ -21,13 +21,23 @@ group_number = 16
 # Possibly try 0, 1, 2 ...
 camera = 1
 
+# What percentage from the course's left most starting point to start at (eg, left most is 0.0, right most is 1.0). This is
+# indep of the course_width. The actual start position in meters.
+START_PERCENTAGE = 0.5
+START_POSITION = course_width * START_PERCENTAGE
+# START_POSITION = 0.7 # AlTERNATIVELY, just hard code a start position distance (based off the left corner)
+Y_UPPER = course_width - START_POSITION
+Y_LOWER = START_POSITION - course_width
 DRONE_HEIGHT = 0.4  # The height in meters
 X_ADJUST = 0.05
 Y_ADJUST = 0.05  # The amount to shift Y in meters
 OBSTACLE_PART_LENGTH = 2.8  # The length of the obstacle portion of the course
 PIPE_DIAMETER = 0.1
 
-
+# ----------------------------
+# mask_frame() takes in frame and finds all the contours in the image,
+# based on the red color. Used to visualize what the drone is seeing
+# ----------------------------
 def mask_frame(frame):
     blurred = cv2.medianBlur(frame, 5)
 
@@ -62,15 +72,16 @@ def mask_frame(frame):
                 col = pixel[0][0]
                 output_gray[row][col] = 0
 
+    thickness = 3  # Set to -1 to fill in the contours completely
     cv2.drawContours(output_gray, new_contours, -1, 255, 3)
 
     return output_gray
 
 
-## Some helper functions:
-## -----------------------------------------------------------------------------------------
+# Some helper functions:
+# -----------------------------------------------------------------------------------------
 
-# Ascend and hover:
+# set_PID_controller
 def set_PID_controller(cf):
     # Set the PID Controller:
     print('Initializing PID Controller')
@@ -95,14 +106,14 @@ def ascend_and_hover(cf, height=DRONE_HEIGHT):
         time.sleep(0.1)
     return
 
-
+# Given an array of contours "contours", return
+# the largest area contour and its index in the array
 def findGreatestContour(contours):
     largest_area = 0
     largest_contour_index = -1
     i = 0
-    total_contours = len(contours)
 
-    while i < total_contours:
+    while i < len(contours):
         area = cv2.contourArea(contours[i])
         if area > largest_area:
             largest_area = area
@@ -118,9 +129,11 @@ def check_contours(frame):
 
     # Compute
     mask0 = cv2.inRange(hsv, np.array([0, 40, 40]), np.array([20, 255, 255]))
-    mask1 = cv2.inRange(hsv, np.array([160, 40, 40]), np.array([190, 255, 255]))
+    mask1 = cv2.inRange(hsv, np.array(
+        [160, 40, 40]), np.array([190, 255, 255]))
     test_mask = mask0 + mask1
-    contours, _ = cv2.findContours(test_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+    contours, _ = cv2.findContours(
+        test_mask, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
     largest_area, largest_contour_index = findGreatestContour(contours)
 
@@ -135,16 +148,17 @@ def check_contours(frame):
         elif (320 <= center[0][0] <= 400):
             return True, Y_ADJUST
         else:
+            # This means no y adjustment is needed, we can move forward
             return False, 0
     return False, 0
 
 
 # Follow the setpoint sequence trajectory:
-def adjust_position(cf, current_y, y_adjust, current_x):
+def adjust_position(cf, current_y, y_adjust, current_x, height=DRONE_HEIGHT):
     #     print('Adjusting position')
 
-    current_y = current_y + y_adjust
-    position = [current_x, current_y, DRONE_HEIGHT, 0.0]
+    current_y += y_adjust
+    position = [current_x, current_y, height, 0.0]
 
     #     print('Setting position {}'.format(position))
     for i in range(10):
@@ -154,18 +168,16 @@ def adjust_position(cf, current_y, y_adjust, current_x):
                                             position[3])
         time.sleep(0.01)
 
-    # cf.commander.send_stop_setpoint()
     # Make sure that the last packet leaves before the link is closed
     # since the message queue is not flushed before closing
     time.sleep(0.1)
     return current_y
 
 
-def move_forward(cf, current_x, x_adjust, current_y):
-    #     print('Move Forward')
+def move_forward(cf, current_x, x_adjust, current_y, height=DRONE_HEIGHT):
 
-    current_x = current_x + x_adjust
-    position = [current_x, current_y, DRONE_HEIGHT, 0.0]
+    current_x += x_adjust
+    position = [current_x, current_y, height, 0.0]
 
     #     print('Setting position {}'.format(position))
     for i in range(10):
@@ -175,7 +187,6 @@ def move_forward(cf, current_x, x_adjust, current_y):
                                             position[3])
         time.sleep(0.01)
 
-    # cf.commander.send_stop_setpoint()
     # Make sure that the last packet leaves before the link is closed
     # since the message queue is not flushed before closing
     time.sleep(0.1)
@@ -200,11 +211,11 @@ def hover_and_descend(cf):
     return
 
 
-## -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------
 
-## The following code is the main logic that is executed when this script is run
+# The following code is the main logic that is executed when this script is run
 
-## -----------------------------------------------------------------------------------------
+# -----------------------------------------------------------------------------------------
 # Set the URI the Crazyflie will connect to
 uri = f'radio://0/{group_number}/2M'
 
@@ -224,7 +235,7 @@ for i in available:
 if len(available) == 0:
     print('No Crazyflies found, cannot run example')
 else:
-    ## Ascent to hover; run the sequence; then descend from hover:
+    # Ascent to hover; run the sequence; then descend from hover:
     # Use the CrazyFlie corresponding to team number:
     with SyncCrazyflie(uri, cf=Crazyflie(rw_cache='./cache')) as scf:
         # Get the Crazyflie class instance:
@@ -263,7 +274,8 @@ else:
                     plt.imshow(mask_frame(frame))
 
                     b, g, r = cv2.split(frame)  # get b,g,r
-                    rgb_frame = cv2.merge([r, g, b])  # switch it to rgbplt.figure()
+                    # switch it to rgbplt.figure()
+                    rgb_frame = cv2.merge([r, g, b])
                     plt.figure()
                     plt.imshow(rgb_frame)
                     #                     continue
@@ -283,8 +295,10 @@ else:
 
                             # If at edge, move towards middle
                             if override_y_adjust != 0:
-                                print('Moving w/ override_y_adjust:', override_y_adjust)
-                                current_y = adjust_position(cf, current_y, override_y_adjust, current_x)
+                                print('Moving w/ override_y_adjust:',
+                                      override_y_adjust)
+                                current_y = adjust_position(
+                                    cf, current_y, override_y_adjust, current_x)
 
                                 # Stop overriding once obstacle passes middle of camera
                                 # so that override direction matches that of y_adjust
@@ -292,10 +306,10 @@ else:
                                     override_y_adjust = 0
 
                             # Left out of bounds
-                            elif new_y > course_width / 2:
+                            elif new_y > Y_UPPER:
                                 override_y_adjust = -Y_ADJUST
                             # Right out of bounds
-                            elif new_y < -course_width / 2:
+                            elif new_y < Y_LOWER:
                                 override_y_adjust = Y_ADJUST
 
                             # check to see if we have moved recently to left or right
@@ -308,11 +322,13 @@ else:
                                                                                                                y_adjust_prev))
                                 print('current_x - x_pos_prev = {}'.format(delta_x))
                                 print('moving by - y_adjust instead')
-                                current_y = adjust_position(cf, current_y, -y_adjust, current_x)
+                                current_y = adjust_position(
+                                    cf, current_y, -y_adjust, current_x)
 
                             # Move away from obstacle
                             else:
-                                current_y = adjust_position(cf, current_y, y_adjust, current_x)
+                                current_y = adjust_position(
+                                    cf, current_y, y_adjust, current_x)
 
                                 # store y_adjust value
                                 y_adjust_prev = y_adjust
@@ -325,11 +341,12 @@ else:
                                 elif y_adjust_prev > 0:
                                     print('Moved left')
 
-                        #                                 print('largest contour area: {}'.format())
+                        # print('largest contour area: {}'.format())
 
                         # Move forward
                         else:
-                            current_x = move_forward(cf, current_x, X_ADJUST, current_y)
+                            current_x = move_forward(
+                                cf, current_x, X_ADJUST, current_y)
 
                             if current_x > OBSTACLE_PART_LENGTH:
                                 print('Drone is in end zone!')
@@ -337,6 +354,7 @@ else:
 
         ### Book detection
         run_book = True
+
         if run_book:
 
             if (ascended_bool == 0):
@@ -345,13 +363,43 @@ else:
                 ascended_bool = 1
 
             # Center y
-            current_y = adjust_position(cf, current_y, -current_y, current_x)
+            current_y = adjust_position(cf, current_y, -current_y, current_x, 0.85)
             # Maybe adjust height if needed
 
-            # read a frame
-            ret, frame = cap.read()
+            largest_contour_index = -1
 
-            if ret:
+            # read a frame
+            while largest_contour_index == -1:
+                ret, frame = cap.read()
+
+                if ret:
+
+                    # Detect blue contours
+                    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+                    mask0 = cv2.inRange(hsv, np.array([90, 50, 50]), np.array([110, 255, 255]))
+
+                    contours, _ = cv2.findContours(mask0, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+
+                    largest_area, largest_contour_index = findGreatestContour(contours)
+                    print('largest area: {}'.format(largest_area))
+            largest_contour = contours[largest_contour_index]
+            center = np.mean(largest_contour, axis=0)[0]  # Should give [x, y]
+
+            print(center)
+
+            # Move towards contour with adjust_position
+            while center[1] > 330 or center[1] < 310:
+                y_adjust = 0.05 if center[1] < 320 else -0.05
+                if y_adjust > 0:
+                    print('moving left')
+                else:
+                    print('moving right')
+                current_y = adjust_position(cf, current_y, y_adjust, current_x, 0.85)
+
+                ret, frame = cap.read()
+
+                while not ret:
+                    ret, frame = cap.read()
 
                 # Detect blue contours
                 hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
@@ -361,22 +409,20 @@ else:
 
                 largest_area, largest_contour_index = findGreatestContour(contours)
                 print('largest area: {}'.format(largest_area))
+
                 largest_contour = contours[largest_contour_index]
-                center = np.mean(largest_contour, axis=0)  # Should give [x, y]
+                center = np.mean(largest_contour, axis=0)[0]  # Should give [x, y]
 
-                # Move towards contour with adjust_position
-                while center[1] > 330 or center[1] < 310:
-                    y_adjust = 0.05 if center[1] < 320 else -0.05
-                    current_y = adjust_position(cf, current_y, y_adjust, current_x)
+            # Move forward until contour becomes large enough
+            # Add while loop that runs while contour too small
+            while largest_area < 1000:
+                print('largest area: {}'.format(largest_area))
+                current_x = move_forward(cf, current_x, X_ADJUST, current_y, 0.85)
 
-                # Move forward until contour becomes large enough
-                # Add while loop that runs while contour too small
-                while largest_area < 1000:
-                    print('largest area: {}'.format(largest_area))
-                    current_x = move_forward(cf, current_x, X_ADJUST, current_y)
+                # update contour
+                ret, frame = cap.read()
 
-                    # update contour
-                    ret, frame = cap.read()
+                if ret:
 
                     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
                     mask0 = cv2.inRange(hsv, np.array([90, 50, 50]), np.array([110, 255, 255]))
@@ -384,8 +430,8 @@ else:
                     contours, _ = cv2.findContours(mask0, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
                     largest_area, _ = findGreatestContour(contours)
 
-                print('Drone is close to target book')
-                print(largest_area)
+            print('Drone is close to target book')
+            print(largest_area)
 
             # Land
 
