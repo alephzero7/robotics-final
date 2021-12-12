@@ -83,15 +83,15 @@ def set_PID_controller(cf):
 
 
 # Ascend and hover:
-def ascend_and_hover(cf):
+def ascend_and_hover(cf, height=DRONE_HEIGHT):
     # Ascend:
     STEP_COUNT = 10
-    for y in range(int(DRONE_HEIGHT * STEP_COUNT)):
+    for y in range(int(height * STEP_COUNT)):
         cf.commander.send_hover_setpoint(0, 0, 0, y / STEP_COUNT)
         time.sleep(0.1)
     # Hover at 1.0 meters:
     for _ in range(20):
-        cf.commander.send_hover_setpoint(0, 0, 0, DRONE_HEIGHT)
+        cf.commander.send_hover_setpoint(0, 0, 0, height)
         time.sleep(0.1)
     return
 
@@ -246,6 +246,7 @@ else:
 
         cap = cv2.VideoCapture(camera)
         while (cap.isOpened()):
+            break
 
             ret, frame = cap.read()
 
@@ -335,38 +336,56 @@ else:
                                 break
 
         ### Book detection
-        run_book = False
+        run_book = True
         if run_book:
+
+            if (ascended_bool == 0):
+                set_PID_controller(cf)
+                ascend_and_hover(cf, 0.85)
+                ascended_bool = 1
+
             # Center y
             current_y = adjust_position(cf, current_y, -current_y, current_x)
             # Maybe adjust height if needed
 
-            # Detect blue contours
-            hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-            mask0 = cv2.inRange(hsv, np.array([90, 50, 50]), np.array([110, 255, 255]))
+            # read a frame
+            ret, frame = cap.read()
 
-            contours, _ = cv2.findContours(mask0, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+            if ret:
 
-            largest_area, largest_contour_index = findGreatestContour(contours)
-            largest_contour = contours[largest_contour_index]
-            center = np.mean(largest_contour, axis=0)  # Should give [x, y]
+                # Detect blue contours
+                hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+                mask0 = cv2.inRange(hsv, np.array([90, 50, 50]), np.array([110, 255, 255]))
 
-            # Move towards contour with adjust_position
-            while center[1] > 330 or center[1] < 310:
-                y_adjust = 0.05 if center[1] < 320 else -0.05
-                current_y = adjust_position(cf, current_y, y_adjust, current_x)
-
-            # Move forward until contour becomes large enough
-            # Add while loop that runs while contour too small
-            while largest_area < 1000:
-                current_x = move_forward(cf, current_x, X_ADJUST, current_y)
-
-                # update contour
                 contours, _ = cv2.findContours(mask0, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-                largest_area, _ = findGreatestContour(contours)
 
-            print('Drone is close to target book')
-            print(largest_area)
+                largest_area, largest_contour_index = findGreatestContour(contours)
+                print('largest area: {}'.format(largest_area))
+                largest_contour = contours[largest_contour_index]
+                center = np.mean(largest_contour, axis=0)  # Should give [x, y]
+
+                # Move towards contour with adjust_position
+                while center[1] > 330 or center[1] < 310:
+                    y_adjust = 0.05 if center[1] < 320 else -0.05
+                    current_y = adjust_position(cf, current_y, y_adjust, current_x)
+
+                # Move forward until contour becomes large enough
+                # Add while loop that runs while contour too small
+                while largest_area < 1000:
+                    print('largest area: {}'.format(largest_area))
+                    current_x = move_forward(cf, current_x, X_ADJUST, current_y)
+
+                    # update contour
+                    ret, frame = cap.read()
+
+                    hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
+                    mask0 = cv2.inRange(hsv, np.array([90, 50, 50]), np.array([110, 255, 255]))
+
+                    contours, _ = cv2.findContours(mask0, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
+                    largest_area, _ = findGreatestContour(contours)
+
+                print('Drone is close to target book')
+                print(largest_area)
 
             # Land
 
