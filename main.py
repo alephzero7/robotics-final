@@ -181,9 +181,10 @@ def check_contours(frame):
         largest_contour = contours[largest_contour_index]
         center = np.mean(largest_contour, axis=0)  # Should give [x, y]
         #         print(center)
-        if (240 <= center[0][0] <= 320):
+        # previously 220-320, 320-420
+        if (220 <= center[0][0] <= 320):
             return True, -Y_ADJUST
-        elif (320 <= center[0][0] <= 400):
+        elif (320 <= center[0][0] <= 420):
             return True, Y_ADJUST
         else:
             # This means no y adjustment is needed, we can move forward
@@ -395,19 +396,48 @@ else:
 
         if run_book:
 
-            if (ascended_bool == 0):
-                set_PID_controller(cf)
-                ascend_and_hover(cf, 0.85)
-                ascended_bool = 1
+            # if (ascended_bool == 0):
+            #     set_PID_controller(cf)
+            #     ascend_and_hover(cf, 0.85)
+            #     ascended_bool = 1
+            #
+            # else:
+            print('BEFORE ASCEND TO TABLE HEIGHT')
+            for _ in range(10):
+                cf.commander.send_hover_setpoint(0, 0, 0, 0.85)
+                time.sleep(0.1)
+            time.sleep(1)
 
-            else:
-                for _ in range(10):
-                    cf.commander.send_hover_setpoint(current_x, current_y, 0.85, 0)
-                    time.sleep(0.01)
+            print('BEFORE CENTERING')
+            for _ in range(10):
+                current_y = adjust_position(cf, current_y, -current_y, current_x, 0.85)
                 time.sleep(0.1)
 
+            time.sleep(1)
+            print('AFTER CENTERED ON TABLE AND HEIGHT')
+            #     for i in range(5):
+            #
+            #         for _ in range(10):
+            #             cf.commander.send_hover_setpoint(current_x, current_y,
+            #                                              DRONE_HEIGHT + (0.85 - DRONE_HEIGHT) * (i+1)/5, 0)
+            #             time.sleep(0.01)
+            #         time.sleep(0.1)
+            #
+            # for i in range(5):
+            #
+            #     # for _ in range(10):
+            #
+            #     current_y = adjust_position(cf, current_y, -current_y * (i+1)/5, current_x, 0.85)
+
+                # time.sleep(0.01)
+                # time.sleep(0.1)
+
+            # for i in range(5):
+            #
+            # # for _ in range(10):
+            #
+            #     current_y = adjust_position(cf, current_y, (0.5 * ), current_x, 0.85)
             # Center y
-            current_y = adjust_position(cf, current_y, -current_y, current_x, 0.85)
             # Maybe adjust height if needed
 
             largest_contour_index = -1
@@ -468,7 +498,9 @@ else:
             print('Centered on the book')
             # Move forward until contour becomes large enough
             # Add while loop that runs while contour too small
+
             while largest_area < 5000:
+                break
                 print('largest area: {}'.format(largest_area))
 
                 _, _, z_est = position_estimate(scf)
