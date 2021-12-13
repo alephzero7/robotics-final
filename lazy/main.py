@@ -391,29 +391,29 @@ else:
                                 print('Drone is in end zone!')
                                 break
 
-            ### Book detection
+        ### Book detection
         run_book = True
 
         if run_book:
 
-            if (ascended_bool == 0):
-                set_PID_controller(cf)
-                ascend_and_hover(cf, 0.85)
-                ascended_bool = 1
-
-            else:
-                print('BEFORE ASCEND TO TABLE HEIGHT')
-                for _ in range(10):
-                    cf.commander.send_hover_setpoint(0, 0, 0, 0.85)
-                    time.sleep(0.1)
-                time.sleep(1)
+            # if (ascended_bool == 0):
+            #     set_PID_controller(cf)
+            #     ascend_and_hover(cf, 0.85)
+            #     ascended_bool = 1
+            #
+            # else:
+            print('BEFORE ASCEND TO TABLE HEIGHT')
+            for _ in range(10):
+                cf.commander.send_hover_setpoint(0, 0, 0, 0.85)
+                time.sleep(0.1)
+            time.sleep(1)
 
             print('BEFORE CENTERING')
             for _ in range(10):
                 current_y = adjust_position(cf, current_y, -current_y, current_x, 0.85)
                 time.sleep(0.1)
 
-            time.sleep(0.1)
+            time.sleep(1)
             print('AFTER CENTERED ON TABLE AND HEIGHT')
             #     for i in range(5):
             #
@@ -429,8 +429,8 @@ else:
             #
             #     current_y = adjust_position(cf, current_y, -current_y * (i+1)/5, current_x, 0.85)
 
-            # time.sleep(0.01)
-            # time.sleep(0.1)
+                # time.sleep(0.01)
+                # time.sleep(0.1)
 
             # for i in range(5):
             #
@@ -457,18 +457,14 @@ else:
                     largest_area, largest_contour_index = findGreatestBookContour(contours)
                     print('largest area: {}'.format(largest_area))
 
-            largest_contour = contours[largest_contour_index]
-            center = np.mean(largest_contour, axis=0)[0]  # Should give [x, y]
-
-            plt.figure()
-            plt.scatter([center[0]], [center[1]], marker="x", color="red", s=200)
-            plt.imshow(frame)
             plt.figure()
             plt.imshow(mask_frame(frame, 'blue'))
 
+            largest_contour = contours[largest_contour_index]
+            center = np.mean(largest_contour, axis=0)[0]  # Should give [x, y]
+
             # Move towards contour with adjust_position
             while center[0] > 330 or center[0] < 310:
-                largest_contour_index = -1
 
                 print('Center: {}'.format(center))
 
@@ -484,37 +480,20 @@ else:
                 while not ret:
                     ret, frame = cap.read()
 
+                plt.figure()
+                plt.imshow(mask_frame(frame, 'blue'))
+
                 # Detect blue contours
                 hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
                 mask0 = cv2.inRange(hsv, np.array([90, 50, 50]), np.array([110, 255, 255]))
 
                 contours, _ = cv2.findContours(mask0, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
 
-                #                 largest_area, largest_contour_index = findGreatestBookContour(contours)
-                #                 if largest_contour_index == -1:
-                #                     continue
-                while largest_contour_index == -1:
-                    ret, frame = cap.read()
-
-                    if ret:
-
-                        # Detect blue contours
-                        hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
-                        mask0 = cv2.inRange(hsv, np.array([90, 50, 50]), np.array([110, 255, 255]))
-
-                        contours, _ = cv2.findContours(mask0, cv2.RETR_LIST, cv2.CHAIN_APPROX_NONE)
-
-                        largest_area, largest_contour_index = findGreatestBookContour(contours)
+                largest_area, largest_contour_index = findGreatestBookContour(contours)
                 print('largest area: {}'.format(largest_area))
 
                 largest_contour = contours[largest_contour_index]
                 center = np.mean(largest_contour, axis=0)[0]  # Should give [x, y]
-
-                plt.figure()
-                plt.scatter([center[0]], [center[1]], marker="x", color="red", s=200)
-                plt.imshow(mask_frame(frame, 'blue'))
-                plt.figure()
-                plt.imshow(frame)
 
             print('Centered on the book')
             # Move forward until contour becomes large enough
@@ -554,6 +533,7 @@ else:
             print('Drone is close to target book')
             print(largest_area)
 
+            # Land
 
         cap.release()
         print('Getting ready to descend')
