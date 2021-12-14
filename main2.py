@@ -146,7 +146,7 @@ def findGreatestContour(contours):
 # Given an array of contours "contours", return
 # the largest area contour and its index in the array
 def findGreatestBookContour(contours):
-    largest_area = 0
+    largest_area = 500
     largest_contour_index = -1
     i = 0
 
