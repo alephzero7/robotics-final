@@ -28,10 +28,10 @@ START_POSITION = course_width * START_PERCENTAGE
 # START_POSITION = 0.7 # AlTERNATIVELY, just hard code a start position distance (based off the left corner)
 Y_UPPER = course_width - START_POSITION
 Y_LOWER = START_POSITION - course_width
-DRONE_HEIGHT = 0.4  # The height in meters
+DRONE_HEIGHT = 0.85  # The height in meters
 X_ADJUST = 0.05
 Y_ADJUST = 0.05  # The amount to shift Y in meters
-OBSTACLE_PART_LENGTH = 2.8  # The length of the obstacle portion of the course
+OBSTACLE_PART_LENGTH = 2.9  # The length of the obstacle portion of the course
 PIPE_DIAMETER = 0.1
 
 # ----------------------------
@@ -296,7 +296,7 @@ else:
 
         cap = cv2.VideoCapture(camera)
         while (cap.isOpened()):
-            # break
+            #             break
 
             ret, frame = cap.read()
 
@@ -395,20 +395,28 @@ else:
         run_book = True
 
         if run_book:
-            print('BEFORE ASCEND TO TABLE HEIGHT')
-            for _ in range(10):
-                cf.commander.send_hover_setpoint(0, 0, 0, 0.85)
-                time.sleep(0.1)
-            time.sleep(0.1)
+
+            if (ascended_bool == 0):
+                set_PID_controller(cf)
+                ascend_and_hover(cf, 0.85)
+                ascended_bool = 1
+            #             else:
+            #                 print('BEFORE ASCEND TO TABLE HEIGHT')
+            #                 for _ in range(10):
+            #                     cf.commander.send_hover_setpoint(0, 0, 0, 0.85)
+            #                     time.sleep(0.1)
+            #                 time.sleep(0.1)
 
             print('BEFORE MOVING LEFT')
             for _ in range(10):
                 current_y = adjust_position(
-                    cf, current_y, -current_y - START_POSITION + 0.1, current_x, 0.85)
+                    cf, current_y, -current_y + START_POSITION - 0.2, current_x, 0.85)
                 time.sleep(0.1)
 
             time.sleep(0.1)
             print('AFTER MOVED LEFT AND AT TABLE HEIGHT')
+
+            num_suc = 0
 
             while True:
                 ret, frame = cap.read()
@@ -425,8 +433,11 @@ else:
                         contours)
                     # print('largest area: {}'.format(largest_area))
                     if largest_contour_index == -1:
-                        current_y = adjust_position(
-                            cf, current_y, -0.05, current_x, 0.85)
+                        if num_suc == 0:
+                            current_y = adjust_position(
+                                cf, current_y, -0.05, current_x, 0.85)
+                            print('moving right')
+                            print('y pos: {}'.format(current_y))
                         continue
                     # If it reaches here, it deteceted a valid contour index
                     largest_contour = contours[largest_contour_index]
@@ -438,8 +449,24 @@ else:
                     plt.imshow(mask_frame(frame, 'blue'))
                     plt.figure()
                     plt.imshow(frame)
-                    if center[0] > 380:
-                        break
+                    print('center:', center)
+                    if 320 < center[0] < 340:
+                        if num_suc >= 2:
+                            break
+                        else:
+                            num_suc += 1
+                    else:
+
+                        if center[0] > 340:
+                            print('center detected to right, moving right')
+                            current_y = adjust_position(cf, current_y, -0.05, current_x, 0.85)
+                        elif center[0] < 320:
+                            print('center detected to left, moving left')
+                            current_y = adjust_position(cf, current_y, 0.05, current_x, 0.85)
+
+                        num_suc = 0
+                    print('num_suc:', num_suc)
+
 
                 plt.figure()
                 plt.scatter([center[0]], [center[1]],
