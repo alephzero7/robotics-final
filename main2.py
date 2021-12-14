@@ -487,3 +487,21 @@ else:
         # hover_and_descend(cf, 0.1)
         cf.commander.send_stop_setpoint()
 print('Done!')
+
+"""
+Summary of Approach
+
+For obstacle avoidance, we adapted the contour detection test code that was provided.
+We used the heuristic that the drone should avoid the largest red contour.
+If the camera detects a red contour within a certain horizontal threshold in the image,
+it moves away in the direction opposite of the contour's center. For example, if the 
+contour is centered on the right half of the image, the drone will move in the positive y 
+direction (left). We also used another heuristic to avoid crashing into an obstacle when
+moving horizontally. We would only allow the drone to move left if it hadn't moved right
+recently, and vice versa. We quantify recently by how far forward the drone has since traveled.
+For book detection, we programmed the drone to move to the left boundary of the course,
+and then scan towards the right, looking for a large blue contour. Once such a contour is found,
+the drone centers itself on the contour's center and drops.
+
+"""
+
